@@ -1,4 +1,4 @@
-const API = 'http://localhost:3000/api';
+const API = 'perpustakaan-sman-1-ngambur-production.up.railway.app';
 let myChart = null;
 let currentReportsData = []; 
 let currentPage = 1; // Variabel baru untuk melacak halaman
