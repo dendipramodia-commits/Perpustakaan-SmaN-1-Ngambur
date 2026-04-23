@@ -1,4 +1,4 @@
-const API = 'perpustakaan-sman-1-ngambur-production.up.railway.app';
+const API = 'https://perpustakaan-sman-1-ngambur-production.up.railway.app/api';
 let myChart = null;
 let currentReportsData = []; 
 let currentPage = 1; // Variabel baru untuk melacak halaman
