@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Perpustakaan SMA Negeri 1 Ngambur</title>
+    
+    <script>
+        if (!sessionStorage.getItem('isLoggedIn')) {
+            window.location.href = 'login.html'; 
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+    <aside class="sidebar" style="display: flex; flex-direction: column;">
+        <div class="logo">
+            <i class="fas fa-book-bookmark"></i> <span style="font-size: 15px;">SMAN 1 Ngambur</span>
+        </div>
+        <nav style="flex-grow: 1;">
+            <div class="menu-item active" id="menu-dash" onclick="nav('p-dash', this)"><i class="fas fa-home"></i> Dashboard</div>
+            <div class="menu-item" id="menu-books" onclick="nav('p-books', this)"><i class="fas fa-book-open"></i> Katalog</div>
+            <div class="menu-item" id="menu-lap" onclick="nav('p-lap', this)"><i class="fas fa-file-invoice"></i> Laporan</div>
+        </nav>
+        
+        <div class="menu-item" onclick="logoutAdmin()" style="margin-top: auto; color: #ef4444; margin-bottom: 20px;">
+            <i class="fas fa-sign-out-alt"></i> Keluar
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <section id="p-dash" class="page active">
+            <div class="dash-header" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px;">
+                <div>
+                    <h1 style="font-size: 32px; color: #1e293b; font-weight: 800; margin: 0;">Selamat Datang, Admin</h1>
+                    <p style="color: #64748b; margin: 5px 0 0 0;">Pantau aktivitas perpustakaan hari ini.</p>
+                </div>
+                <button class="btn-excel-top" onclick="downloadTemplate()" style="background: white; color: #1e293b; border: 1px solid #e2e8f0; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <i class="fas fa-file-excel"></i> Download Template
+                </button>
+            </div>
+
+            <div class="stats-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+                <div class="stat-card blue" style="background: white; padding: 25px; border-radius: 16px; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-left: 5px solid #4f46e5;">
+                    <div class="s-icon" style="width: 50px; height: 50px; background: #eef2ff; color: #4f46e5; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px;"><i class="fas fa-book"></i></div>
+                    <div><h2 id="s1" style="font-size: 24px; color: #4f46e5; margin: 0;">0</h2><small style="color: #64748b; font-weight: 600;">Judul Buku</small></div>
+                </div>
+                <div class="stat-card green" style="background: white; padding: 25px; border-radius: 16px; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-left: 5px solid #10b981;">
+                    <div class="s-icon" style="width: 50px; height: 50px; background: #f0fdf4; color: #10b981; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px;"><i class="fas fa-layer-group"></i></div>
+                    <div><h2 id="s2" style="font-size: 24px; color: #10b981; margin: 0;">0</h2><small style="color: #64748b; font-weight: 600;">Total Stok</small></div>
+                </div>
+                <div class="stat-card orange" style="background: white; padding: 25px; border-radius: 16px; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-left: 5px solid #f59e0b;">
+                    <div class="s-icon" style="width: 50px; height: 50px; background: #fffbeb; color: #f59e0b; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px;"><i class="fas fa-hand-holding"></i></div>
+                    <div><h2 id="s3" style="font-size: 24px; color: #f59e0b; margin: 0;">0</h2><small style="color: #64748b; font-weight: 600;">Sedang Dipinjam</small></div>
+                </div>
+            </div>
+
+            <div class="dashboard-main" style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 25px;">
+                <div class="box" style="background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                    <h3 style="margin-bottom: 25px; font-size: 18px; font-weight: 700; color: #1e293b;">Statistik Peminjaman</h3>
+                    <div style="height: 300px;">
+                        <canvas id="loanChart"></canvas>
+                    </div>
+                </div>
+                <div class="box" style="background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                    <h3 style="margin-bottom: 25px; font-size: 18px; font-weight: 700; color: #1e293b;">Tambah Buku Cepat</h3>
+                    <div class="input-stack">
+                        <input type="text" id="in-j" placeholder="Judul Buku" style="width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; color: #1e293b;">
+                        <input type="text" id="in-p" placeholder="Penulis" style="width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; color: #1e293b;">
+                        <input type="number" id="in-s" placeholder="Jumlah Stok" style="width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; color: #1e293b;">
+                        
+                        <select id="in-kategori" style="width: 100%; padding: 14px; margin-bottom: 15px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; color: #1e293b; font-weight: 500; cursor: pointer; outline: none;">
+                            <option value="" disabled selected>-- Pilih Kategori Buku --</option>
+                            <option value="Cerita">Cerita / Fiksi</option>
+                            <option value="Pelajaran">Pelajaran</option>
+                            <option value="Pengetahuan">Pengetahuan Umum</option>
+                            <option value="Umum">Umum</option>
+                        </select>
+
+                        <button class="btn-simpan" onclick="addBook()" style="background: #4f46e5; color: white; width: 100%; padding: 14px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);">Simpan Buku</button>
+                        
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-import-line" onclick="document.getElementById('fileIn').click()" style="background: white; color: #10b981; border: 1px solid #10b981; width: 50%; padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer;" title="Import Buku Baru">
+                                <i class="fas fa-file-excel"></i> Import Excel
+                            </button>
+                            <button onclick="hapusBukuImport()" style="background: white; color: #ef4444; border: 1px solid #ef4444; width: 50%; padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer;" title="Hapus Riwayat Import">
+                                <i class="fas fa-trash-alt"></i> Hapus Import
+                            </button>
+                        </div>
+                        
+                        <input type="file" id="fileIn" accept=".xlsx, .xls" hidden onchange="importExcel(this)">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="p-books" class="page" style="position: relative; z-index: 1;">
+            <div class="top-bar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; position: relative; z-index: 20;">
+                <h1 style="margin: 0;">Katalog Koleksi</h1>
+                <div class="search-input" style="position: relative; width: 300px;">
+                    <i class="fas fa-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #94a3b8; z-index: 30;"></i>
+                    <input type="text" id="bSearch" placeholder="Cari buku..." onkeyup="loadBooks()" 
+                           style="width: 100%; padding: 12px 15px 12px 45px; border-radius: 12px; border: 1px solid #e2e8f0; background: white; outline: none; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                </div>
+            </div>
+            <div id="book-grid" class="book-grid" style="position: relative; z-index: 1;"></div>
+        </section>
+
+        <section id="p-lap" class="page">
+            <div class="top-bar" style="margin-bottom: 25px;">
+                <h1 style="margin-bottom: 15px;">Laporan & Denda</h1>
+                
+                <div class="filter-actions" style="display: flex; align-items: center; gap: 12px; background: white; padding: 10px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); width: fit-content;">
+                    <select id="fBulan" onchange="loadReports()" style="padding: 10px 15px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fcfcfc; color: #475569; font-weight: 500; outline: none;">
+                        <option value="all">Semua Bulan</option>
+                        <option value="1">Januari</option>
+                        <option value="2">Februari</option>
+                        <option value="3">Maret</option>
+                        <option value="4">April</option>
+                        <option value="5">Mei</option>
+                        <option value="6">Juni</option>
+                        <option value="7">Juli</option>
+                        <option value="8">Agustus</option>
+                        <option value="9">September</option>
+                        <option value="10">Oktober</option>
+                        <option value="11">November</option>
+                        <option value="12">Desember</option>
+                    </select>
+
+                    <select id="fTahun" onchange="loadReports()" style="padding: 10px 15px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fcfcfc; color: #475569; font-weight: 500; outline: none;">
+                        <option value="all">Semua Tahun</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+
+                    <button class="btn btn-primary" onclick="exportLaporan()" style="display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.3s;">
+                        <i class="fas fa-file-export"></i> Export
+                    </button>
+                </div>
+            </div>
+
+            <div class="denda-banner">
+                <div class="denda-info">
+                    <i class="fas fa-wallet"></i>
+                    <div>
+                        <small>Total Akumulasi Denda</small>
+                        <h2 id="total-denda-text">Rp 0</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card table-container">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th>Peminjam</th><th>Kelas</th><th>Buku</th><th>Kategori</th><th>Tanggal Pinjam</th><th>Status</th><th>Denda</th><th>Aksi</th><th style="padding: 12px; text-align: left;">Cetak Struk</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-table"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
