@@ -1,7 +1,7 @@
 const API = 'https://perpustakaan-sman-1-ngambur-production.up.railway.app/api';
 let myChart = null;
 let currentReportsData = []; 
-let currentPage = 1; // Variabel baru untuk melacak halaman
+let currentPage = 1; 
 
 function nav(id, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -10,7 +10,7 @@ function nav(id, el) {
     if (el) el.classList.add('active');
     
     if(id === 'p-dash') loadStats();
-    if(id === 'p-books') loadBooks(1); // Selalu mulai dari hal 1 saat buka menu
+    if(id === 'p-books') loadBooks(1); 
     if(id === 'p-lap') loadReports();
 }
 
@@ -18,9 +18,9 @@ async function loadStats() {
     try {
         const r = await fetch(`${API}/stats`);
         const d = await r.json();
-        document.getElementById('s1').innerText = d.totalJudul;
-        document.getElementById('s2').innerText = d.totalStok;
-        document.getElementById('s3').innerText = d.totalPinjam;
+        document.getElementById('s1').innerText = d.totalJudul || 0;
+        document.getElementById('s2').innerText = d.totalStok || 0;
+        document.getElementById('s3').innerText = d.totalPinjam || 0;
         
         renderChart();
     } catch (e) {
@@ -66,13 +66,11 @@ async function renderChart() {
     }
 }
 
-// FUNGSI LOAD BOOKS DENGAN PAGINATION (DIOPTIMALKAN)
 async function loadBooks(page = 1) {
     try {
         currentPage = page;
         const s = document.getElementById('bSearch')?.value || '';
         
-        // Indikator Loading agar terasa smooth
         document.getElementById('book-grid').innerHTML = '<p style="text-align:center; width:100%; grid-column: 1 / -1; color:#64748b;">Memuat data buku...</p>';
         
         const r = await fetch(`${API}/books?q=${s}&page=${page}&limit=20`);
@@ -115,7 +113,6 @@ async function loadBooks(page = 1) {
     }
 }
 
-// FUNGSI RENDER TOMBOL HALAMAN
 function renderPagination(current, total) {
     let pagContainer = document.getElementById('pagination-container');
     
@@ -127,14 +124,8 @@ function renderPagination(current, total) {
     }
 
     let html = '';
-    
-    // Tombol Prev
     html += `<button onclick="loadBooks(${current - 1})" ${current === 1 ? 'disabled' : ''} style="padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: ${current === 1 ? '#f8fafc' : 'white'}; cursor: ${current === 1 ? 'not-allowed' : 'pointer'}; color: ${current === 1 ? '#94a3b8' : '#1e293b'}; font-weight: 500;"><i class="fas fa-chevron-left"></i></button>`;
-    
-    // Info Halaman
     html += `<span style="padding: 8px 16px; background: #eef2ff; color: #4f46e5; border-radius: 8px; font-weight: bold; font-size: 14px;">Hal. ${current} / ${total}</span>`;
-    
-    // Tombol Next
     html += `<button onclick="loadBooks(${current + 1})" ${current === total || total === 0 ? 'disabled' : ''} style="padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: ${current === total || total === 0 ? '#f8fafc' : 'white'}; cursor: ${current === total || total === 0 ? 'not-allowed' : 'pointer'}; color: ${current === total || total === 0 ? '#94a3b8' : '#1e293b'}; font-weight: 500;"><i class="fas fa-chevron-right"></i></button>`;
 
     pagContainer.innerHTML = html;
@@ -143,24 +134,21 @@ function renderPagination(current, total) {
 async function hapusBuku(id) {
     const konfirmasi = await Swal.fire({
         title: 'Hapus Buku?',
-        text: "Buku ini dan riwayat peminjamannya akan dihapus permanen!",
+        text: "Buku ini akan dihapus permanen!",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#ef4444',
         cancelButtonColor: '#64748b',
-        confirmButtonText: 'Ya, Hapus!',
-        cancelButtonText: 'Batal'
+        confirmButtonText: 'Ya, Hapus!'
     });
 
     if (konfirmasi.isConfirmed) {
         try {
             const res = await fetch(`${API}/books/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                Swal.fire('Terhapus!', 'Buku berhasil dihapus.', 'success');
-                loadBooks(currentPage); loadStats();
-            } else {
-                throw new Error("Gagal menghapus buku");
-            }
+            if (!res.ok) throw new Error("Gagal menghapus buku");
+            
+            Swal.fire('Terhapus!', 'Buku berhasil dihapus.', 'success');
+            loadBooks(currentPage); loadStats();
         } catch (error) {
             Swal.fire('Error', error.message, 'error');
         }
@@ -206,7 +194,7 @@ async function pinjamBuku(id, judul) {
 
     if (formValues) {
         try {
-            await fetch(`${API}/pinjam`, { 
+            const res = await fetch(`${API}/pinjam`, { 
                 method: 'POST', 
                 headers: {'Content-Type': 'application/json'}, 
                 body: JSON.stringify({ 
@@ -217,22 +205,38 @@ async function pinjamBuku(id, judul) {
                 }) 
             });
             
+            // PERBAIKAN: Cek apakah respon benar-benar OK
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || errData.error || 'Server gagal memproses peminjaman');
+            }
+            
             Swal.fire('Sukses', 'Buku berhasil dipinjam', 'success');
             loadBooks(currentPage); loadStats(); loadReports();
         } catch (e) {
-            Swal.fire('Error', 'Gagal meminjam buku', 'error');
+            // Jika gagal, akan muncul pop up merah ini
+            Swal.fire('Error Database/Server', e.message, 'error');
         }
     }
 }
 
 async function kembaliBuku(id, b_id) {
     try {
-        const res = await fetch(`${API}/kembali`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id, buku_id: b_id }) });
-        const data = await res.json();
-        Swal.fire('Berhasil Kembali', data.message, 'success');
+        const res = await fetch(`${API}/kembali`, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({ id, buku_id: b_id }) 
+        });
+        
+        const data = await res.json().catch(() => ({}));
+        
+        // PERBAIKAN: Cek error
+        if (!res.ok) throw new Error(data.message || data.error || 'Gagal mengembalikan buku');
+        
+        Swal.fire('Berhasil', 'Buku telah dikembalikan', 'success');
         loadReports(); loadStats(); loadBooks(currentPage);
     } catch (e) {
-        Swal.fire('Error', 'Gagal mengembalikan buku', 'error');
+        Swal.fire('Error', e.message, 'error');
     }
 }
 
@@ -248,7 +252,12 @@ async function addBook() {
     if(!body.kategori) return Swal.fire('Oops', 'Silakan pilih kategori buku terlebih dahulu', 'warning');
     
     try {
-        const res = await fetch(`${API}/books`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+        const res = await fetch(`${API}/books`, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify(body) 
+        });
+        
         if(res.ok) {
             Swal.fire('Berhasil', 'Buku disimpan!', 'success');
             document.getElementById('in-j').value = ''; 
@@ -256,9 +265,12 @@ async function addBook() {
             document.getElementById('in-s').value = '';
             document.getElementById('in-kategori').value = ''; 
             loadStats(); loadBooks(1);
+        } else {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.message || 'Gagal menyimpan buku');
         }
     } catch (e) {
-        Swal.fire('Error', 'Gagal menyimpan buku', 'error');
+        Swal.fire('Error', e.message, 'error');
     }
 }
 
@@ -321,9 +333,12 @@ function importExcel(input) {
     Swal.fire({ title: 'Memproses Excel...', didOpen: () => Swal.showLoading() });
     
     fetch(`${API}/import`, { method: 'POST', body: formData })
-    .then(r => r.json())
+    .then(async r => {
+        const res = await r.json();
+        if(!r.ok) throw new Error(res.error || 'Gagal import Excel');
+        return res;
+    })
     .then(res => {
-        if(res.error) throw new Error(res.error);
         Swal.fire('Sukses', res.message, 'success');
         loadStats(); loadBooks(1);
         input.value = ''; 
@@ -336,7 +351,7 @@ async function hapusBukuImport() {
         const res = await fetch(`${API}/import-history`);
         const files = await res.json();
 
-        if (files.length === 0) {
+        if (!files || files.length === 0) {
             return Swal.fire('Data Kosong', 'Belum ada riwayat buku dari hasil import Excel.', 'info');
         }
 
@@ -352,19 +367,17 @@ async function hapusBukuImport() {
             showCancelButton: true,
             confirmButtonColor: '#ef4444',
             cancelButtonColor: '#64748b',
-            confirmButtonText: 'Lanjut Hapus',
-            cancelButtonText: 'Batal'
+            confirmButtonText: 'Lanjut Hapus'
         });
 
         if (selectedFile) {
             const konfirmasi = await Swal.fire({
                 title: 'Konfirmasi Terakhir',
-                html: `Kamu yakin ingin menghapus <b>SEMUA BUKU</b> dari file <br><span style="color:#ef4444;">${selectedFile}</span>?`,
+                html: `Yakin ingin menghapus <b>SEMUA BUKU</b> dari file <br><span style="color:#ef4444;">${selectedFile}</span>?`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#ef4444',
-                confirmButtonText: 'Ya, Hapus Semua!',
-                cancelButtonText: 'Batal'
+                confirmButtonText: 'Ya, Hapus Semua!'
             });
 
             if (konfirmasi.isConfirmed) {
