@@ -308,14 +308,11 @@ async function loadReports() {
         currentReportsData = filteredData;
 
         document.getElementById('report-table').innerHTML = filteredData.map(i => {
-            // LOGIKA TANGGAL KEMBALI YANG DIPERBAIKI
+            // PERBAIKAN 2: Di Web UI, kalau belum ada data tanggal dari DB lama, otomatis tampil "-"
             let tglKembaliTeks = '-';
             
             if (i.status !== 'Dipinjam') {
-                // Mencari field tanggal dari database (men-support berbagai format field)
                 const tgl = i.tgl_kembali || i.tanggal_kembali || i.updated_at || i.updatedAt;
-                
-                // Jika server mengirimkan data tanggal, tampilkan tanggalnya. Jika benar-benar kosong tampilkan "-"
                 tglKembaliTeks = tgl ? new Date(tgl).toLocaleDateString('id-ID') : '-';
             }
 
@@ -446,14 +443,23 @@ async function exportLaporan() {
     Swal.fire({ title: 'Membuat Laporan Excel...', text: 'Mohon tunggu sebentar', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     const canvas = document.getElementById('loanChart');
-    const chartImage = canvas ? canvas.toDataURL('image/png') : null;
+    let chartImage = null;
+    
+    // PERBAIKAN 1: Cek apakah canvas benar-benar menghasilkan gambar valid (tidak kosong karena sedang di-hide)
+    if (canvas) {
+        const dataUrl = canvas.toDataURL('image/png');
+        // Jika data base64 panjang (artinya gambarnya nyata, bukan 0 pixel), baru kita kirim ke server
+        if (dataUrl && dataUrl.length > 1000) {
+            chartImage = dataUrl;
+        }
+    }
 
     const totalDipinjam = currentReportsData.filter(x => x.status === 'Dipinjam').length;
     const totalKembali = currentReportsData.filter(x => x.status !== 'Dipinjam').length;
     const totalDendaRp = currentReportsData.reduce((acc, curr) => acc + (Number(curr.denda) || 0), 0);
 
     const dataForExcel = currentReportsData.map(i => {
-        // LOGIKA TANGGAL KEMBALI UNTUK EXPORT JUGA DIPERBAIKI
+        // PERBAIKAN 2: Di file Excel, ganti kata "Selesai" jadi "-" jika tidak ada datanya
         let tglKembaliTeks = '-';
         if (i.status !== 'Dipinjam') {
             const tgl = i.tgl_kembali || i.tanggal_kembali || i.updated_at || i.updatedAt;
@@ -479,7 +485,7 @@ async function exportLaporan() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 data: dataForExcel,
-                chartImage: chartImage,
+                chartImage: chartImage, // Gambar aman, jika rusak/kosong tidak akan dikirim sehingga Excel tidak error
                 stats: {
                     totalDipinjam: totalDipinjam,
                     totalKembali: totalKembali,
