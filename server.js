@@ -55,6 +55,14 @@ app.get('/api/stats', (req, res) => {
     });
 });
 
+app.get('/api/setup-db', (req, res) => {
+    const query = "ALTER TABLE peminjaman ADD COLUMN tgl_kembali DATETIME NULL";
+    db.query(query, (err, result) => {
+        if (err) return res.send("Info: " + err.message);
+        res.send("MANTAP! Kolom tgl_kembali berhasil ditambahkan ke database!");
+    });
+});
+
 // 2. Get Books (Pagination)
 app.get('/api/books', (req, res) => {
     const s = req.query.q || '';
