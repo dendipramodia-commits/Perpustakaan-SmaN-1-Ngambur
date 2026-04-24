@@ -22,21 +22,15 @@ async function loadStats() {
         document.getElementById('s2').innerText = d.totalStok || 0;
         document.getElementById('s3').innerText = d.totalPinjam || 0;
         
-        renderChart();
+        // Panggil renderChart dan kirimkan data pinjam & stok
+        renderChart(d.totalPinjam || 0, d.totalStok || 0);
     } catch (e) {
         console.error("Gagal memuat statistik", e);
     }
 }
 
-async function renderChart() {
+async function renderChart(pinjam, stok) {
     try {
-        const r = await fetch(`${API}/reports`);
-        const d = await r.json();
-        
-        const data = d.reports || [];
-        const dipinjam = data.filter(x => x.status === 'Dipinjam').length;
-        const kembali = data.filter(x => x.status !== 'Dipinjam').length;
-        
         const canvas = document.getElementById('loanChart');
         if (!canvas) return;
 
@@ -46,9 +40,11 @@ async function renderChart() {
         myChart = new Chart(ctx, {
             type: 'doughnut', 
             data: { 
-                labels: ['Sedang Dipinjam', 'Dikembalikan'], 
+                // Mengubah label menjadi Sedang Dipinjam dan Stok Buku
+                labels: ['Sedang Dipinjam', 'Stok Buku'], 
                 datasets: [{ 
-                    data: [dipinjam, kembali], 
+                    // Memasukkan data pinjam dan stok yang dikirim dari loadStats
+                    data: [pinjam, stok], 
                     backgroundColor: ['#f59e0b', '#10b981'], 
                     borderWidth: 0,
                     hoverOffset: 10
