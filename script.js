@@ -78,7 +78,6 @@ async function loadBooks(page = 1) {
         currentPage = page;
         const s = document.getElementById('bSearch')?.value || '';
         
-        // --- UPDATE 1: ANIMASI SPINNER SMOOTH ---
         document.getElementById('book-grid').innerHTML = `
             <div style="text-align:center; width:100%; grid-column: 1 / -1; padding: 40px;">
                 <i class="fas fa-circle-notch fa-spin" style="font-size: 32px; color: #4f46e5; margin-bottom: 15px;"></i>
@@ -156,14 +155,12 @@ async function hapusBuku(id) {
     });
 
     if (konfirmasi.isConfirmed) {
-        // --- UPDATE 2: LOADING SCREEN SEBELUM FETCH ---
         Swal.fire({ title: 'Menghapus...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         
         try {
             const res = await fetch(`${API}/books/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error("Gagal menghapus buku");
             
-            // --- UPDATE 3: NOTIFIKASI TOAST MELAYANG ---
             Toast.fire({ icon: 'success', title: 'Buku berhasil dihapus' });
             loadBooks(currentPage); loadStats();
         } catch (error) {
@@ -207,7 +204,6 @@ async function pinjamBuku(id, judul, kategoriBuku) {
     });
 
     if (formValues) {
-        // --- UPDATE 2: LOADING SCREEN ---
         Swal.fire({ title: 'Memproses...', text: 'Mohon tunggu sebentar', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
 
         try {
@@ -227,7 +223,6 @@ async function pinjamBuku(id, judul, kategoriBuku) {
                 throw new Error(errData.message || errData.error || 'Server gagal memproses peminjaman');
             }
             
-            // --- UPDATE 3: NOTIFIKASI TOAST MELAYANG ---
             Toast.fire({ icon: 'success', title: 'Buku berhasil dipinjam' });
             loadBooks(currentPage); loadStats(); loadReports();
         } catch (e) {
@@ -237,7 +232,6 @@ async function pinjamBuku(id, judul, kategoriBuku) {
 }
 
 async function kembaliBuku(id, b_id) {
-    // --- UPDATE 2: LOADING SCREEN ---
     Swal.fire({ title: 'Memproses...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     try {
@@ -251,7 +245,6 @@ async function kembaliBuku(id, b_id) {
         
         if (!res.ok) throw new Error(data.message || data.error || 'Gagal mengembalikan buku');
         
-        // --- UPDATE 3: NOTIFIKASI TOAST MELAYANG ---
         Toast.fire({ icon: 'success', title: 'Buku telah dikembalikan' });
         loadReports(); loadStats(); loadBooks(currentPage);
     } catch (e) {
@@ -270,7 +263,6 @@ async function addBook() {
     if(!body.judul) return Swal.fire('Oops', 'Judul buku wajib diisi', 'warning');
     if(!body.kategori) return Swal.fire('Oops', 'Silakan pilih kategori buku terlebih dahulu', 'warning');
     
-    // --- UPDATE 2: LOADING SCREEN ---
     Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     try {
@@ -281,7 +273,6 @@ async function addBook() {
         });
         
         if(res.ok) {
-            // --- UPDATE 3: NOTIFIKASI TOAST MELAYANG ---
             Toast.fire({ icon: 'success', title: 'Buku berhasil disimpan' });
             document.getElementById('in-j').value = ''; 
             document.getElementById('in-p').value = ''; 
@@ -316,13 +307,27 @@ async function loadReports() {
 
         currentReportsData = filteredData;
 
-        document.getElementById('report-table').innerHTML = filteredData.map(i => `
+        document.getElementById('report-table').innerHTML = filteredData.map(i => {
+            // Logika Tanggal Kembali
+            let tglKembaliTeks = '-';
+            if (i.status !== 'Dipinjam') {
+                // Mencoba mengambil dari tgl_kembali, jika tidak ada fallback ke updated_at
+                const tgl = i.tgl_kembali || i.updated_at;
+                tglKembaliTeks = tgl ? new Date(tgl).toLocaleDateString('id-ID') : 'Selesai';
+            }
+
+            return `
             <tr style="border-bottom: 1px solid #e2e8f0;">
                 <td style="padding: 12px;"><b>${i.nama_peminjam}</b></td>
                 <td style="padding: 12px;"><span style="background: #eef2ff; color: #4f46e5; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold;">${i.kelas_peminjam || '-'}</span></td>
                 <td style="padding: 12px;">${i.judul}</td>
                 <td style="padding: 12px;">${i.kategori_pinjam || i.kategori || 'Umum'}</td>
                 <td style="padding: 12px;">${new Date(i.tgl_pinjam).toLocaleDateString('id-ID')}</td>
+                
+                <td style="padding: 12px; font-weight: 500; color: ${tglKembaliTeks === '-' ? '#94a3b8' : '#1e293b'}; text-align: center;">
+                    ${tglKembaliTeks}
+                </td>
+                
                 <td style="padding: 12px;"><span class="status-pill ${i.status.toLowerCase()}">${i.status}</span></td>
                 <td style="padding: 12px; color: ${i.denda > 0 ? '#ef4444' : '#64748b'}; font-weight: bold;">Rp ${Number(i.denda).toLocaleString('id-ID')}</td>
                 <td style="padding: 12px;">
@@ -337,7 +342,8 @@ async function loadReports() {
                     </button>
                 </td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
         
         const dendaFilter = filteredData.reduce((acc, curr) => acc + (Number(curr.denda) || 0), 0);
         document.getElementById('total-denda-text').innerText = `Rp ${dendaFilter.toLocaleString('id-ID')}`;
@@ -362,7 +368,6 @@ function importExcel(input) {
         return res;
     })
     .then(res => {
-        // --- UPDATE 3: NOTIFIKASI TOAST MELAYANG ---
         Toast.fire({ icon: 'success', title: res.message });
         loadStats(); loadBooks(1);
         input.value = ''; 
@@ -411,7 +416,6 @@ async function hapusBukuImport() {
                 const delData = await delRes.json();
                 
                 if (delRes.ok) {
-                    // --- UPDATE 3: NOTIFIKASI TOAST MELAYANG ---
                     Toast.fire({ icon: 'success', title: delData.message });
                     loadBooks(1); loadStats();
                 } else {
@@ -445,16 +449,26 @@ async function exportLaporan() {
     const totalKembali = currentReportsData.filter(x => x.status !== 'Dipinjam').length;
     const totalDendaRp = currentReportsData.reduce((acc, curr) => acc + (Number(curr.denda) || 0), 0);
 
-    const dataForExcel = currentReportsData.map(i => ({
-        peminjam: i.nama_peminjam,
-        kelas: i.kelas_peminjam || "-",
-        buku: i.judul,
-        kategori: i.kategori_pinjam || i.kategori || "Umum",
-        tgl_pinjam: new Date(i.tgl_pinjam).toLocaleDateString('id-ID'),
-        status: i.status,
-        denda: `Rp ${Number(i.denda).toLocaleString('id-ID')}`,
-        aksi: i.status === 'Dipinjam' ? 'Belum dikembalikan' : 'Sudah dikembalikan'
-    }));
+    const dataForExcel = currentReportsData.map(i => {
+        // Logika Tanggal Kembali untuk Export
+        let tglKembaliTeks = '-';
+        if (i.status !== 'Dipinjam') {
+            const tgl = i.tgl_kembali || i.updated_at;
+            tglKembaliTeks = tgl ? new Date(tgl).toLocaleDateString('id-ID') : 'Selesai';
+        }
+
+        return {
+            peminjam: i.nama_peminjam,
+            kelas: i.kelas_peminjam || "-",
+            buku: i.judul,
+            kategori: i.kategori_pinjam || i.kategori || "Umum",
+            tgl_pinjam: new Date(i.tgl_pinjam).toLocaleDateString('id-ID'),
+            tgl_kembali: tglKembaliTeks, // Ditambahkan ke data Excel
+            status: i.status,
+            denda: `Rp ${Number(i.denda).toLocaleString('id-ID')}`,
+            aksi: i.status === 'Dipinjam' ? 'Belum dikembalikan' : 'Sudah dikembalikan'
+        };
+    });
 
     try {
         const res = await fetch(`${API}/export`, {
