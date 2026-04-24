@@ -40,10 +40,8 @@ async function renderChart(pinjam, stok) {
         myChart = new Chart(ctx, {
             type: 'doughnut', 
             data: { 
-                // Mengubah label menjadi Sedang Dipinjam dan Stok Buku
                 labels: ['Sedang Dipinjam', 'Stok Buku'], 
                 datasets: [{ 
-                    // Memasukkan data pinjam dan stok yang dikirim dari loadStats
                     data: [pinjam, stok], 
                     backgroundColor: ['#f59e0b', '#10b981'], 
                     borderWidth: 0,
@@ -95,7 +93,7 @@ async function loadBooks(page = 1) {
                             <i class="fas fa-trash"></i>
                         </button>
                         
-                        <button onclick="pinjamBuku(${b.id}, '${b.judul.replace(/'/g, "\\'")}')" style="background: ${b.stok <= 0 ? '#cbd5e1' : '#4f46e5'}; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: ${b.stok <= 0 ? 'not-allowed' : 'pointer'}; font-weight: bold; transition: 0.2s;" ${b.stok <= 0 ? 'disabled' : ''}>
+                        <button onclick="pinjamBuku(${b.id}, '${b.judul.replace(/'/g, "\\'")}', '${b.kategori || 'Umum'}')" style="background: ${b.stok <= 0 ? '#cbd5e1' : '#4f46e5'}; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: ${b.stok <= 0 ? 'not-allowed' : 'pointer'}; font-weight: bold; transition: 0.2s;" ${b.stok <= 0 ? 'disabled' : ''}>
                             Pinjam
                         </button>
                     </div>
@@ -151,11 +149,11 @@ async function hapusBuku(id) {
     }
 }
 
-async function pinjamBuku(id, judul) {
+async function pinjamBuku(id, judul, kategoriBuku) {
     const { value: formValues } = await Swal.fire({
         title: 'Data Peminjam',
         html:
-            '<div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 15px;">' +
+            '<div style="display: flex; justify-content: space-between; gap: 10px; margin-bottom: 10px;">' +
                 '<input id="swal-nama" class="swal2-input" style="margin: 0; width: 65%; font-size: 15px;" placeholder="Nama Lengkap">' +
                 '<select id="swal-kelas" class="swal2-select" style="margin: 0; width: 35%; padding: 0 10px; font-size: 14px;">' +
                     '<option value="X">Kelas X</option>' +
@@ -164,12 +162,9 @@ async function pinjamBuku(id, judul) {
                     '<option value="Guru/Staf">Guru/Staf</option>' +
                 '</select>' +
             '</div>' +
-            '<select id="swal-kategori" class="swal2-select" style="margin: 0; width: 100%; padding: 0 15px; font-size: 15px;">' +
-                '<option value="" disabled selected>-- Pilih Kategori Buku --</option>' +
-                '<option value="Cerita">Cerita / Fiksi</option>' +
-                '<option value="Pelajaran">Pelajaran</option>' +
-                '<option value="Pengetahuan">Pengetahuan Umum</option>' +
-            '</select>',
+            '<p style="font-size: 13px; color: #64748b; margin: 15px 0 0 0; text-align: left; background: #f8fafc; padding: 10px; border-radius: 8px;">' +
+                'Meminjam: <b>' + judul + '</b> <br>Kategori: <b>' + kategoriBuku + '</b>' +
+            '</p>',
         focusConfirm: false,
         showCancelButton: true,
         confirmButtonText: 'Pinjam',
@@ -178,10 +173,10 @@ async function pinjamBuku(id, judul) {
         preConfirm: () => {
             const nama = document.getElementById('swal-nama').value;
             const kelas = document.getElementById('swal-kelas').value;
-            const kategori = document.getElementById('swal-kategori').value;
+            const kategori = kategoriBuku; // Kategori otomatis masuk sini
 
-            if (!nama || !kategori) {
-                Swal.showValidationMessage('Nama peminjam dan Kategori wajib diisi!');
+            if (!nama) {
+                Swal.showValidationMessage('Nama peminjam wajib diisi!');
                 return false;
             }
             return { nama, kelas, kategori };
@@ -201,7 +196,6 @@ async function pinjamBuku(id, judul) {
                 }) 
             });
             
-            // PERBAIKAN: Cek apakah respon benar-benar OK
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
                 throw new Error(errData.message || errData.error || 'Server gagal memproses peminjaman');
@@ -210,7 +204,6 @@ async function pinjamBuku(id, judul) {
             Swal.fire('Sukses', 'Buku berhasil dipinjam', 'success');
             loadBooks(currentPage); loadStats(); loadReports();
         } catch (e) {
-            // Jika gagal, akan muncul pop up merah ini
             Swal.fire('Error Database/Server', e.message, 'error');
         }
     }
@@ -226,7 +219,6 @@ async function kembaliBuku(id, b_id) {
         
         const data = await res.json().catch(() => ({}));
         
-        // PERBAIKAN: Cek error
         if (!res.ok) throw new Error(data.message || data.error || 'Gagal mengembalikan buku');
         
         Swal.fire('Berhasil', 'Buku telah dikembalikan', 'success');
