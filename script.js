@@ -3,6 +3,20 @@ let myChart = null;
 let currentReportsData = []; 
 let currentPage = 1; 
 
+// --- KONFIGURASI NOTIFIKASI MELAYANG (TOAST) ---
+const Toast = Swal.mixin({
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+    didOpen: (toast) => {
+        toast.addEventListener('mouseenter', Swal.stopTimer)
+        toast.addEventListener('mouseleave', Swal.resumeTimer)
+    }
+});
+// ----------------------------------------------
+
 function nav(id, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
@@ -22,7 +36,6 @@ async function loadStats() {
         document.getElementById('s2').innerText = d.totalStok || 0;
         document.getElementById('s3').innerText = d.totalPinjam || 0;
         
-        // Panggil renderChart dan kirimkan data pinjam & stok
         renderChart(d.totalPinjam || 0, d.totalStok || 0);
     } catch (e) {
         console.error("Gagal memuat statistik", e);
@@ -65,7 +78,13 @@ async function loadBooks(page = 1) {
         currentPage = page;
         const s = document.getElementById('bSearch')?.value || '';
         
-        document.getElementById('book-grid').innerHTML = '<p style="text-align:center; width:100%; grid-column: 1 / -1; color:#64748b;">Memuat data buku...</p>';
+        // --- UPDATE 1: ANIMASI SPINNER SMOOTH ---
+        document.getElementById('book-grid').innerHTML = `
+            <div style="text-align:center; width:100%; grid-column: 1 / -1; padding: 40px;">
+                <i class="fas fa-circle-notch fa-spin" style="font-size: 32px; color: #4f46e5; margin-bottom: 15px;"></i>
+                <p style="color:#64748b; font-weight: 500;">Sedang mengambil data...</p>
+            </div>
+        `;
         
         const r = await fetch(`${API}/books?q=${s}&page=${page}&limit=20`);
         const res = await r.json();
@@ -137,11 +156,15 @@ async function hapusBuku(id) {
     });
 
     if (konfirmasi.isConfirmed) {
+        // --- UPDATE 2: LOADING SCREEN SEBELUM FETCH ---
+        Swal.fire({ title: 'Menghapus...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        
         try {
             const res = await fetch(`${API}/books/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error("Gagal menghapus buku");
             
-            Swal.fire('Terhapus!', 'Buku berhasil dihapus.', 'success');
+            // --- UPDATE 3: NOTIFIKASI TOAST MELAYANG ---
+            Toast.fire({ icon: 'success', title: 'Buku berhasil dihapus' });
             loadBooks(currentPage); loadStats();
         } catch (error) {
             Swal.fire('Error', error.message, 'error');
@@ -173,7 +196,7 @@ async function pinjamBuku(id, judul, kategoriBuku) {
         preConfirm: () => {
             const nama = document.getElementById('swal-nama').value;
             const kelas = document.getElementById('swal-kelas').value;
-            const kategori = kategoriBuku; // Kategori otomatis masuk sini
+            const kategori = kategoriBuku; 
 
             if (!nama) {
                 Swal.showValidationMessage('Nama peminjam wajib diisi!');
@@ -184,6 +207,9 @@ async function pinjamBuku(id, judul, kategoriBuku) {
     });
 
     if (formValues) {
+        // --- UPDATE 2: LOADING SCREEN ---
+        Swal.fire({ title: 'Memproses...', text: 'Mohon tunggu sebentar', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
         try {
             const res = await fetch(`${API}/pinjam`, { 
                 method: 'POST', 
@@ -201,7 +227,8 @@ async function pinjamBuku(id, judul, kategoriBuku) {
                 throw new Error(errData.message || errData.error || 'Server gagal memproses peminjaman');
             }
             
-            Swal.fire('Sukses', 'Buku berhasil dipinjam', 'success');
+            // --- UPDATE 3: NOTIFIKASI TOAST MELAYANG ---
+            Toast.fire({ icon: 'success', title: 'Buku berhasil dipinjam' });
             loadBooks(currentPage); loadStats(); loadReports();
         } catch (e) {
             Swal.fire('Error Database/Server', e.message, 'error');
@@ -210,6 +237,9 @@ async function pinjamBuku(id, judul, kategoriBuku) {
 }
 
 async function kembaliBuku(id, b_id) {
+    // --- UPDATE 2: LOADING SCREEN ---
+    Swal.fire({ title: 'Memproses...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
     try {
         const res = await fetch(`${API}/kembali`, { 
             method: 'POST', 
@@ -221,7 +251,8 @@ async function kembaliBuku(id, b_id) {
         
         if (!res.ok) throw new Error(data.message || data.error || 'Gagal mengembalikan buku');
         
-        Swal.fire('Berhasil', 'Buku telah dikembalikan', 'success');
+        // --- UPDATE 3: NOTIFIKASI TOAST MELAYANG ---
+        Toast.fire({ icon: 'success', title: 'Buku telah dikembalikan' });
         loadReports(); loadStats(); loadBooks(currentPage);
     } catch (e) {
         Swal.fire('Error', e.message, 'error');
@@ -239,6 +270,9 @@ async function addBook() {
     if(!body.judul) return Swal.fire('Oops', 'Judul buku wajib diisi', 'warning');
     if(!body.kategori) return Swal.fire('Oops', 'Silakan pilih kategori buku terlebih dahulu', 'warning');
     
+    // --- UPDATE 2: LOADING SCREEN ---
+    Swal.fire({ title: 'Menyimpan...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
     try {
         const res = await fetch(`${API}/books`, { 
             method: 'POST', 
@@ -247,7 +281,8 @@ async function addBook() {
         });
         
         if(res.ok) {
-            Swal.fire('Berhasil', 'Buku disimpan!', 'success');
+            // --- UPDATE 3: NOTIFIKASI TOAST MELAYANG ---
+            Toast.fire({ icon: 'success', title: 'Buku berhasil disimpan' });
             document.getElementById('in-j').value = ''; 
             document.getElementById('in-p').value = ''; 
             document.getElementById('in-s').value = '';
@@ -318,7 +353,7 @@ function importExcel(input) {
     const formData = new FormData();
     formData.append('file', file);
     
-    Swal.fire({ title: 'Memproses Excel...', didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'Memproses Excel...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     
     fetch(`${API}/import`, { method: 'POST', body: formData })
     .then(async r => {
@@ -327,7 +362,8 @@ function importExcel(input) {
         return res;
     })
     .then(res => {
-        Swal.fire('Sukses', res.message, 'success');
+        // --- UPDATE 3: NOTIFIKASI TOAST MELAYANG ---
+        Toast.fire({ icon: 'success', title: res.message });
         loadStats(); loadBooks(1);
         input.value = ''; 
     })
@@ -369,13 +405,14 @@ async function hapusBukuImport() {
             });
 
             if (konfirmasi.isConfirmed) {
-                Swal.fire({ title: 'Menghapus data...', didOpen: () => Swal.showLoading() });
+                Swal.fire({ title: 'Menghapus data...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
                 
                 const delRes = await fetch(`${API}/books/import/${encodeURIComponent(selectedFile)}`, { method: 'DELETE' });
                 const delData = await delRes.json();
                 
                 if (delRes.ok) {
-                    Swal.fire('Berhasil Terhapus!', delData.message, 'success');
+                    // --- UPDATE 3: NOTIFIKASI TOAST MELAYANG ---
+                    Toast.fire({ icon: 'success', title: delData.message });
                     loadBooks(1); loadStats();
                 } else {
                     throw new Error(delData.error || "Gagal menghapus data");
@@ -399,7 +436,7 @@ async function exportLaporan() {
         return Swal.fire('Data Kosong', 'Tidak ada data laporan untuk diexport.', 'warning');
     }
 
-    Swal.fire({ title: 'Membuat Laporan Excel...', text: 'Mohon tunggu sebentar', didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: 'Membuat Laporan Excel...', text: 'Mohon tunggu sebentar', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     const canvas = document.getElementById('loanChart');
     const chartImage = canvas ? canvas.toDataURL('image/png') : null;
@@ -446,6 +483,7 @@ async function exportLaporan() {
         a.remove();
         
         Swal.close();
+        Toast.fire({ icon: 'success', title: 'Laporan berhasil diunduh' });
     } catch (e) {
         Swal.fire('Error', e.message, 'error');
     }
