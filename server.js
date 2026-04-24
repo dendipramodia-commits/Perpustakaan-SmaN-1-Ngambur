@@ -18,11 +18,11 @@ const upload = multer({ dest: 'uploads/' });
 
 // --- KONFIGURASI DATABASE RAILWAY (SUDAH DIPERBARUI) ---
 const db = mysql.createPool({
-    host: process.env.MYSQLHOST || 'shortline.proxy.rlwy.net', // Menggunakan Public Host Railway
+    host: process.env.MYSQLHOST || 'shortline.proxy.rlwy.net', 
     user: process.env.MYSQLUSER || 'root',
     password: process.env.MYSQLPASSWORD || 'gRobrrQuyegHTURnNcYaaGuNoDMtQZAD',
     database: process.env.MYSQLDATABASE || 'railway', 
-    port: process.env.MYSQLPORT || 46205, // Menggunakan Public Port dari MYSQL_PUBLIC_URL kamu
+    port: process.env.MYSQLPORT || 46205, 
     waitForConnections: true,
     connectionLimit: 10
 });
@@ -104,7 +104,7 @@ app.post('/api/pinjam', (req, res) => {
     });
 });
 
-// 5. Kembali Buku
+// 5. Kembali Buku (SUDAH DITAMBAHKAN TANGGAL KEMBALI)
 app.post('/api/kembali', (req, res) => {
     const { id, buku_id } = req.body;
     db.query("SELECT tgl_pinjam FROM peminjaman WHERE id = ?", [id], (err, result) => {
@@ -115,9 +115,13 @@ app.post('/api/kembali', (req, res) => {
         const selisihMenit = Math.floor(selisihWaktu / (1000 * 60));
         let denda = 0;
         if (selisihMenit > 60) denda = (selisihMenit - 60) * 2500;
-        const qUpdatePinjam = "UPDATE peminjaman SET status = 'Dikembalikan', denda = ? WHERE id = ?";
+        
+        // DITAMBAHKAN: tgl_kembali = NOW()
+        const qUpdatePinjam = "UPDATE peminjaman SET status = 'Dikembalikan', denda = ?, tgl_kembali = NOW() WHERE id = ?";
         const qUpdateBuku = "UPDATE buku SET stok = stok + 1 WHERE id = ?";
+        
         db.query(qUpdatePinjam, [denda, id], (err) => {
+            if (err) return res.status(500).json({ error: err.message }); // Tambahan error handling biar ketahuan kalau kolom belum ada
             db.query(qUpdateBuku, [buku_id], () => {
                 const telat = selisihMenit > 60 ? selisihMenit - 60 : 0;
                 res.json({ message: `Kembali sukses! Keterlambatan: ${telat} menit. Denda: Rp ${denda}` });
