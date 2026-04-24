@@ -308,12 +308,15 @@ async function loadReports() {
         currentReportsData = filteredData;
 
         document.getElementById('report-table').innerHTML = filteredData.map(i => {
-            // Logika Tanggal Kembali
+            // LOGIKA TANGGAL KEMBALI YANG DIPERBAIKI
             let tglKembaliTeks = '-';
+            
             if (i.status !== 'Dipinjam') {
-                // Mencoba mengambil dari tgl_kembali, jika tidak ada fallback ke updated_at
-                const tgl = i.tgl_kembali || i.updated_at;
-                tglKembaliTeks = tgl ? new Date(tgl).toLocaleDateString('id-ID') : 'Selesai';
+                // Mencari field tanggal dari database (men-support berbagai format field)
+                const tgl = i.tgl_kembali || i.tanggal_kembali || i.updated_at || i.updatedAt;
+                
+                // Jika server mengirimkan data tanggal, tampilkan tanggalnya. Jika benar-benar kosong tampilkan "-"
+                tglKembaliTeks = tgl ? new Date(tgl).toLocaleDateString('id-ID') : '-';
             }
 
             return `
@@ -450,11 +453,11 @@ async function exportLaporan() {
     const totalDendaRp = currentReportsData.reduce((acc, curr) => acc + (Number(curr.denda) || 0), 0);
 
     const dataForExcel = currentReportsData.map(i => {
-        // Logika Tanggal Kembali untuk Export
+        // LOGIKA TANGGAL KEMBALI UNTUK EXPORT JUGA DIPERBAIKI
         let tglKembaliTeks = '-';
         if (i.status !== 'Dipinjam') {
-            const tgl = i.tgl_kembali || i.updated_at;
-            tglKembaliTeks = tgl ? new Date(tgl).toLocaleDateString('id-ID') : 'Selesai';
+            const tgl = i.tgl_kembali || i.tanggal_kembali || i.updated_at || i.updatedAt;
+            tglKembaliTeks = tgl ? new Date(tgl).toLocaleDateString('id-ID') : '-';
         }
 
         return {
@@ -463,7 +466,7 @@ async function exportLaporan() {
             buku: i.judul,
             kategori: i.kategori_pinjam || i.kategori || "Umum",
             tgl_pinjam: new Date(i.tgl_pinjam).toLocaleDateString('id-ID'),
-            tgl_kembali: tglKembaliTeks, // Ditambahkan ke data Excel
+            tgl_kembali: tglKembaliTeks,
             status: i.status,
             denda: `Rp ${Number(i.denda).toLocaleString('id-ID')}`,
             aksi: i.status === 'Dipinjam' ? 'Belum dikembalikan' : 'Sudah dikembalikan'
