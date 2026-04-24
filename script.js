@@ -2,6 +2,7 @@ const API = 'https://perpustakaan-sman-1-ngambur-production.up.railway.app/api';
 let myChart = null;
 let currentReportsData = []; 
 let currentPage = 1; 
+let savedChartImage = null; // Tambahan: Untuk menyimpan gambar diagram secara permanen
 
 // --- KONFIGURASI NOTIFIKASI MELAYANG (TOAST) ---
 const Toast = Swal.mixin({
@@ -68,6 +69,14 @@ async function renderChart(pinjam, stok) {
                 plugins: { legend: { position: 'bottom' } } 
             }
         });
+
+        // PERBAIKAN: "Memfoto" diagram langsung saat dibuat agar tidak hilang saat pindah menu
+        setTimeout(() => {
+            if (myChart) {
+                savedChartImage = myChart.toBase64Image();
+            }
+        }, 500);
+
     } catch (e) {
         console.error("Gagal merender grafik", e);
     }
@@ -308,7 +317,6 @@ async function loadReports() {
         currentReportsData = filteredData;
 
         document.getElementById('report-table').innerHTML = filteredData.map(i => {
-            // PERBAIKAN 2: Di Web UI, kalau belum ada data tanggal dari DB lama, otomatis tampil "-"
             let tglKembaliTeks = '-';
             
             if (i.status !== 'Dipinjam') {
@@ -442,16 +450,6 @@ async function exportLaporan() {
 
     Swal.fire({ title: 'Membuat Laporan Excel...', text: 'Mohon tunggu sebentar', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-    const canvas = document.getElementById('loanChart');
-    let chartImage = null;
-    
-    if (canvas) {
-        const dataUrl = canvas.toDataURL('image/png');
-        if (dataUrl && dataUrl.length > 1000) {
-            chartImage = dataUrl;
-        }
-    }
-
     const totalDipinjam = currentReportsData.filter(x => x.status === 'Dipinjam').length;
     const totalKembali = currentReportsData.filter(x => x.status !== 'Dipinjam').length;
     const totalDendaRp = currentReportsData.reduce((acc, curr) => acc + (Number(curr.denda) || 0), 0);
@@ -463,19 +461,31 @@ async function exportLaporan() {
             tglKembaliTeks = tgl ? new Date(tgl).toLocaleDateString('id-ID') : '-';
         }
 
-        // PERBAIKAN: Menggunakan Huruf Kapital agar otomatis menjadi Header Kolom yang rapi di Excel
+        // PERBAIKAN: Dikembalikan ke huruf kecil persis seperti aslinya agar server paham
+        // Tanggal kembali dikirim isi teksnya agar tetap rapi
         return {
-            "Peminjam": i.nama_peminjam,
-            "Kelas": i.kelas_peminjam || "-",
-            "Buku": i.judul,
-            "Kategori": i.kategori_pinjam || i.kategori || "Umum",
-            "Tanggal Pinjam": new Date(i.tgl_pinjam).toLocaleDateString('id-ID'),
-            "Tanggal Kembali": tglKembaliTeks, 
-            "Status": i.status,
-            "Denda": `Rp ${Number(i.denda).toLocaleString('id-ID')}`,
-            "Aksi": i.status === 'Dipinjam' ? 'Belum dikembalikan' : 'Sudah dikembalikan'
+            peminjam: i.nama_peminjam,
+            kelas: i.kelas_peminjam || "-",
+            buku: i.judul,
+            kategori: i.kategori_pinjam || i.kategori || "Umum",
+            tgl_pinjam: new Date(i.tgl_pinjam).toLocaleDateString('id-ID'),
+            tgl_kembali: tglKembaliTeks, 
+            status: i.status,
+            denda: `Rp ${Number(i.denda).toLocaleString('id-ID')}`,
+            aksi: i.status === 'Dipinjam' ? 'Belum dikembalikan' : 'Sudah dikembalikan'
         };
     });
+
+    // PERBAIKAN: Gunakan gambar yang sudah difoto secara permanen
+    let finalChartImage = savedChartImage;
+    if (!finalChartImage) {
+        // Fallback jika kebetulan belum sempat tersimpan
+        const canvas = document.getElementById('loanChart');
+        if (canvas) {
+            const dataUrl = canvas.toDataURL('image/png');
+            if (dataUrl && dataUrl.length > 1000) finalChartImage = dataUrl;
+        }
+    }
 
     try {
         const res = await fetch(`${API}/export`, {
@@ -483,7 +493,7 @@ async function exportLaporan() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 data: dataForExcel,
-                chartImage: chartImage,
+                chartImage: finalChartImage,
                 stats: {
                     totalDipinjam: totalDipinjam,
                     totalKembali: totalKembali,
