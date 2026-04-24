@@ -445,10 +445,8 @@ async function exportLaporan() {
     const canvas = document.getElementById('loanChart');
     let chartImage = null;
     
-    // PERBAIKAN 1: Cek apakah canvas benar-benar menghasilkan gambar valid (tidak kosong karena sedang di-hide)
     if (canvas) {
         const dataUrl = canvas.toDataURL('image/png');
-        // Jika data base64 panjang (artinya gambarnya nyata, bukan 0 pixel), baru kita kirim ke server
         if (dataUrl && dataUrl.length > 1000) {
             chartImage = dataUrl;
         }
@@ -459,23 +457,23 @@ async function exportLaporan() {
     const totalDendaRp = currentReportsData.reduce((acc, curr) => acc + (Number(curr.denda) || 0), 0);
 
     const dataForExcel = currentReportsData.map(i => {
-        // PERBAIKAN 2: Di file Excel, ganti kata "Selesai" jadi "-" jika tidak ada datanya
         let tglKembaliTeks = '-';
         if (i.status !== 'Dipinjam') {
             const tgl = i.tgl_kembali || i.tanggal_kembali || i.updated_at || i.updatedAt;
             tglKembaliTeks = tgl ? new Date(tgl).toLocaleDateString('id-ID') : '-';
         }
 
+        // PERBAIKAN: Menggunakan Huruf Kapital agar otomatis menjadi Header Kolom yang rapi di Excel
         return {
-            peminjam: i.nama_peminjam,
-            kelas: i.kelas_peminjam || "-",
-            buku: i.judul,
-            kategori: i.kategori_pinjam || i.kategori || "Umum",
-            tgl_pinjam: new Date(i.tgl_pinjam).toLocaleDateString('id-ID'),
-            tgl_kembali: tglKembaliTeks,
-            status: i.status,
-            denda: `Rp ${Number(i.denda).toLocaleString('id-ID')}`,
-            aksi: i.status === 'Dipinjam' ? 'Belum dikembalikan' : 'Sudah dikembalikan'
+            "Peminjam": i.nama_peminjam,
+            "Kelas": i.kelas_peminjam || "-",
+            "Buku": i.judul,
+            "Kategori": i.kategori_pinjam || i.kategori || "Umum",
+            "Tanggal Pinjam": new Date(i.tgl_pinjam).toLocaleDateString('id-ID'),
+            "Tanggal Kembali": tglKembaliTeks, 
+            "Status": i.status,
+            "Denda": `Rp ${Number(i.denda).toLocaleString('id-ID')}`,
+            "Aksi": i.status === 'Dipinjam' ? 'Belum dikembalikan' : 'Sudah dikembalikan'
         };
     });
 
@@ -485,7 +483,7 @@ async function exportLaporan() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 data: dataForExcel,
-                chartImage: chartImage, // Gambar aman, jika rusak/kosong tidak akan dikirim sehingga Excel tidak error
+                chartImage: chartImage,
                 stats: {
                     totalDipinjam: totalDipinjam,
                     totalKembali: totalKembali,
