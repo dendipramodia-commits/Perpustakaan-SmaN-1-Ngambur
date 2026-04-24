@@ -121,7 +121,7 @@ app.post('/api/kembali', (req, res) => {
         const qUpdateBuku = "UPDATE buku SET stok = stok + 1 WHERE id = ?";
         
         db.query(qUpdatePinjam, [denda, id], (err) => {
-            if (err) return res.status(500).json({ error: err.message }); // Tambahan error handling biar ketahuan kalau kolom belum ada
+            if (err) return res.status(500).json({ error: err.message }); 
             db.query(qUpdateBuku, [buku_id], () => {
                 const telat = selisihMenit > 60 ? selisihMenit - 60 : 0;
                 res.json({ message: `Kembali sukses! Keterlambatan: ${telat} menit. Denda: Rp ${denda}` });
@@ -177,6 +177,7 @@ app.post('/api/export', async (req, res) => {
         const { data, chartImage, stats } = req.body;
         const workbook = new ExcelJS.Workbook();
         const sheetSummary = workbook.addWorksheet('Ringkasan Laporan');
+        
         sheetSummary.getColumn('B').width = 30;
         sheetSummary.getColumn('C').width = 25;
         sheetSummary.mergeCells('B2:C2');
@@ -184,34 +185,53 @@ app.post('/api/export', async (req, res) => {
         sheetSummary.getCell('B2').font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
         sheetSummary.getCell('B2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
         sheetSummary.getCell('B2').alignment = { horizontal: 'center', vertical: 'middle' };
+        
         sheetSummary.getCell('B4').value = 'Total Buku Sedang Dipinjam';
-        sheetSummary.getCell('C4').value = stats.totalDipinjam;
+        sheetSummary.getCell('C4').value = parseInt(stats.totalDipinjam) || 0;
         sheetSummary.getCell('B5').value = 'Total Buku Dikembalikan';
-        sheetSummary.getCell('C5').value = stats.totalKembali;
+        sheetSummary.getCell('C5').value = parseInt(stats.totalKembali) || 0;
+        
+        // Perbaikan format angka untuk Total Denda
         sheetSummary.getCell('B6').value = 'Total Akumulasi Denda';
-        sheetSummary.getCell('C6').value = stats.totalDenda;
+        const rawTotalDenda = String(stats.totalDenda).replace(/[^0-9]/g, '');
+        sheetSummary.getCell('C6').value = parseInt(rawTotalDenda) || 0;
+        sheetSummary.getCell('C6').numFmt = '"Rp"#,##0';
 
-        if (chartImage) {
+        // Perbaikan validasi gambar (hanya di-render jika base64 valid & lengkap)
+        if (chartImage && chartImage.length > 1000) {
             const base64Data = chartImage.replace(/^data:image\/png;base64,/, "");
             const imageId = workbook.addImage({ base64: base64Data, extension: 'png' });
             sheetSummary.addImage(imageId, { tl: { col: 4, row: 1 }, ext: { width: 400, height: 400 } });
         }
 
         const sheetData = workbook.addWorksheet('Data Peminjaman');
+        
+        // Penambahan Kolom Tgl Kembali & Penyesuaian Kolom Lainnya
         sheetData.columns = [
             { header: 'Peminjam', key: 'peminjam', width: 25 },
             { header: 'Kelas', key: 'kelas', width: 12 },
             { header: 'Judul Buku', key: 'buku', width: 35 },
             { header: 'Kategori', key: 'kategori', width: 20 },
             { header: 'Tgl Pinjam', key: 'tgl_pinjam', width: 18 },
+            { header: 'Tgl Kembali', key: 'tgl_kembali', width: 18 }, // <-- KOLOM BARU
             { header: 'Status', key: 'status', width: 18 },
             { header: 'Denda', key: 'denda', width: 15 },
             { header: 'Aksi', key: 'aksi', width: 22 }
         ];
 
         data.forEach((item) => {
+            // Perbaikan Denda: Mengubah "Rp 5.000" menjadi angka 5000 agar bisa dihitung di Excel
+            if (typeof item.denda === 'string') {
+                item.denda = parseInt(item.denda.replace(/[^0-9]/g, '')) || 0;
+            }
+
             const row = sheetData.addRow(item);
-            const cellAksi = row.getCell(8);
+            
+            // Format kolom Denda (Kolom ke-8) menjadi format mata uang Rupiah
+            row.getCell(8).numFmt = '"Rp"#,##0';
+
+            // Menggeser Aksi ke kolom ke-9 karena ada kolom Tgl Kembali
+            const cellAksi = row.getCell(9);
             if (item.aksi === 'Belum dikembalikan') cellAksi.font = { color: { argb: 'FFEF4444' }, bold: true };
             else if (item.aksi === 'Sudah dikembalikan') cellAksi.font = { color: { argb: 'FF10B981' }, bold: true };
         });
@@ -220,7 +240,10 @@ app.post('/api/export', async (req, res) => {
         res.setHeader('Content-Disposition', 'attachment; filename="Laporan_Perpustakaan_Pro.xlsx"');
         await workbook.xlsx.write(res);
         res.end();
-    } catch (error) { res.status(500).json({ message: "Gagal membuat laporan excel" }); }
+    } catch (error) { 
+        console.error(error);
+        res.status(500).json({ message: "Gagal membuat laporan excel" }); 
+    }
 });
 
 // 10. Import History
